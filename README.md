@@ -9,7 +9,7 @@ Uses signal processing, adaptive filtering, and echo analysis to detect and loca
 
 - Adaptive bandpass filtering around pinger frequency
 
- -Automatic calibration using end-cap reflection
+- Automatic calibration using end-cap reflection
 
 - Leak detection via echo difference analysis
 
@@ -18,3 +18,14 @@ Uses signal processing, adaptive filtering, and echo analysis to detect and loca
 - Detailed plots (time, frequency, spectrograms, histograms)
 
 - Text summary of detected leaks
+
+## Usage  
+
+```python
+from EnhancedLeakDetector import EnhancedLeakDetector
+
+detector = EnhancedLeakDetector(
+    sampling_rate=12_500_000,   # ADC sample rate in Hz
+    pipe_length=1.0             # Pipe length in meters
+)
+
