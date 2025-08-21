@@ -89,11 +89,3 @@ Evidence score: 1.354
 
 - This tool is designed for research and development. Real-world performance may require parameter tuning and validation with your specific hardware and environment.
 - For best results, ensure your baseline and scenario measurements are properly aligned and acquired under similar conditions.
-
-## License
-
-[MIT License](LICENSE)
-
-## Contact
-
-For questions or collaboration, please contact the [Information Science Lab, KAUST](https://github.com/Information-Science-Lab-KAUST).
