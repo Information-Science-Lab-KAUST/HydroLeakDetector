@@ -36,4 +36,20 @@ detector = EnhancedLeakDetector(
     sampling_rate=12_500_000,   # ADC sample rate in Hz
     pipe_length=1.0             # Pipe length in meters
 )
+```
+## Configuration
+```python
+detector = EnhancedLeakDetector(
+    sampling_rate=12_500_000,  # ADC sample rate (Hz)
+    pipe_length=1.0,           # Pipe length (m)
+    downsample_factor=100,     # Data reduction factor
+    speed_of_sound=1480,       # Speed of sound in water (m/s)
+    pinger_freq=10000          # Pinger frequency (Hz)
+)
+```
+
+
+
+
+
 
