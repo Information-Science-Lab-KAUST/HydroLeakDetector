@@ -19,6 +19,14 @@ Uses signal processing, adaptive filtering, and echo analysis to detect and loca
 
 - Text summary of detected leaks
 
+## Installation
+```bash
+git clone https://github.com/your-username/HydroLeakDetector.git
+cd HydroLeakDetector
+pip install -r requirements.txt
+
+```
+
 ## Usage  
 
 ```python
