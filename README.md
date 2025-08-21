@@ -29,9 +29,9 @@ Edit the `main` function in `Main.py` to specify:
 
 Example:
 ```python
-baseline_path = "C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\Response Folder\\analogbaseline.csv"
-output_dir = "C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\enhanced_analysis"
-scenario_files = glob.glob("C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\Response Folder\\analog.csv")
+baseline_path = "C:\\Hydrophone_Project\\Response Folder\\analogbaseline.csv"
+output_dir = "C:\\Hydrophone_Project\\enhanced_analysis"
+scenario_files = glob.glob("C:\\Hydrophone_Project\\Response Folder\\analog.csv")
 ```
 
 ### 3. Run the Program
