@@ -27,16 +27,6 @@ pip install -r requirements.txt
 
 ```
 
-## Usage  
-
-```python
-from EnhancedLeakDetector import EnhancedLeakDetector
-
-detector = EnhancedLeakDetector(
-    sampling_rate=12_500_000,   # ADC sample rate in Hz
-    pipe_length=1.0             # Pipe length in meters
-)
-```
 ## Configuration
 ```python
 detector = EnhancedLeakDetector(
