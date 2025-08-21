@@ -19,11 +19,22 @@ Uses signal processing, adaptive filtering, and echo analysis to detect and loca
 
 - Text summary of detected leaks
 
+# Usage
+You should keep things organized and create two folders:
+
+- Response_Folder – store all your CSV files here, including the baseline file.
+
+- enhanced_analysis – this folder will be automatically used to store all the output plots and summaries.
+
+
+
 ## Installation
 ```bash
 git clone https://github.com/your-username/HydroLeakDetector.git
 cd HydroLeakDetector
 pip install -r requirements.txt
+mkdir Response Folder
+mkdir enhanced_analysis
 
 ```
 
@@ -37,6 +48,17 @@ detector = EnhancedLeakDetector(
     pinger_freq=10000          # Pinger frequency (Hz)
 )
 ```
+
+
+
+
+
+
+
+
+
+
+
 
 
 
