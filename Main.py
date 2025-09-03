@@ -5,19 +5,10 @@ from scipy.signal import find_peaks, butter, filtfilt, correlate, stft, welch
 import glob
 import os
 import warnings
-import sys
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QFileDialog
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 warnings.filterwarnings('ignore')
 
-
-from Vierwer import PipePlot as p_plot
-from UI.ui import Ui_Form
-
-class EnhancedLeakDetector(p_plot):
-    def __init__(self, sampling_rate=12500000, pipe_length=1.0):
+class EnhancedLeakDetector:
+    def __init__(self, sampling_rate=50000000, pipe_length=0.8):
         self.sampling_rate = sampling_rate
         self.pipe_length = pipe_length
         self.dt = 1.0 / sampling_rate
@@ -26,57 +17,6 @@ class EnhancedLeakDetector(p_plot):
         self.effective_dt = 1.0 / self.effective_sampling_rate
         self.speed_of_sound = 1480
         
-
-
-    def starter(self):
-        app = QtWidgets.QApplication(sys.argv)
-        self.Main_div = QtWidgets.QWidget()
-        self.Main_ui = Ui_Form()
-        self.Main_ui.setupUi(self.Main_div)
-        self.Main_div.show()
-        self.clicked()
-        sys.exit(app.exec_())
-
-    def clicked(self):
-        self.Main_ui.Baseline_btn.clicked.connect(self.get_baseline_path)
-        self.Main_ui.Response_btn.clicked.connect(self.get_response_path)
-        self.Main_ui.Plot_btn.clicked.connect(self.run_analysis)
-
-
-    def get_baseline_path(self):
-
-        file_path, _ = QFileDialog.getOpenFileName(
-        None,                     
-        "Select Baseline File",   
-        "",                       
-        "CSV Files (*.csv);;All Files (*)"  
-    )
-        if file_path:  
-            self.Main_ui.Baseline_le.setText(file_path)  
-            print(f"Selected Baseline File: {file_path}")
-
-        self.g_baseline_path = file_path
-
-
-    def get_response_path(self):
-
-        file_path, _ = QFileDialog.getOpenFileName(
-            None,
-            "Select Response File",
-            "",
-            "CSV Files (*.csv);;All Files (*)"
-        )
-        if file_path:
-            self.Main_ui.Response_le.setText(file_path)
-            print(f"Selected Response File: {file_path}")
-        self.g_response_path = file_path
-
-
-    def run_analysis(self):
-        baseline_path = self.g_baseline_path
-        response_path = self.g_response_path
-        self.main(baseline_path, response_path)
-
     def load_and_preprocess(self, filepath, time_col=0, signal_col=1):
         try:
             print(f"Loading {filepath}...")
@@ -197,12 +137,16 @@ class EnhancedLeakDetector(p_plot):
         )
         echo_indices = peaks + search_start
         echo_metrics = []
+        
         for idx in echo_indices:
             if idx >= len(time):
                 continue
             time_diff = time[idx] - time[direct_idx]
             distance = (self.speed_of_sound * time_diff) / 2
-            if 0 < distance < self.pipe_length:
+            
+            # Only consider echoes within the pipe (0 to pipe_length)
+         
+            if 0 < distance <= self.pipe_length:
                 echo_metrics.append({
                     'time': time[idx],
                     'time_diff': time_diff,
@@ -210,45 +154,43 @@ class EnhancedLeakDetector(p_plot):
                     'amplitude': scenario_signal[idx],
                     'evidence': combined_evidence[idx - search_start]
                 })
+            else:
+               
+                print(f"  Ignoring echo at {distance:.3f}m (beyond pipe length of {self.pipe_length}m)")
+        
         echo_metrics.sort(key=lambda x: x['evidence'], reverse=True)
         primary_leak = echo_metrics[0] if echo_metrics else None
         return echo_indices, echo_metrics, primary_leak
         
     def plot_detailed_analysis(self, baseline_time, baseline_signal, scenario_signal,
-                           direct_idx, echo_indices, echo_metrics, primary_leak,
-                           scenario_name, save_path=None):
-
+                             direct_idx, echo_indices, echo_metrics, primary_leak, scenario_name, save_path=None):
         min_length = min(len(baseline_time), len(scenario_signal))
         baseline_time = baseline_time[:min_length]
         baseline_signal = baseline_signal[:min_length]
         scenario_signal = scenario_signal[:min_length]
         echo_indices = [idx for idx in echo_indices if idx < min_length]
-
-        # Clear previous plots in the frame
-        for i in reversed(range(self.Main_ui.plot_frame.layout().count())):
-            self.Main_ui.plot_frame.layout().itemAt(i).widget().setParent(None)
-
-        # Create a figure and canvas
-        fig = Figure(figsize=(12, 12))
-        canvas = FigureCanvas(fig)
-        self.Main_ui.plot_frame.layout().addWidget(canvas)  # Add canvas to your Qt frame
-        axes = fig.subplots(3, 1)
-
-        # --- Raw signals ---
-        axes[0].plot(baseline_time, baseline_signal, 'b-', label='Baseline', alpha=0.7)
-        axes[0].plot(baseline_time, scenario_signal, 'r-', label=scenario_name, alpha=0.7)
-        axes[0].axvline(x=baseline_time[direct_idx], color='green', linestyle='--', label='Direct Pulse')
-        axes[0].set_xlabel('Time (s)')
-        axes[0].set_ylabel('Amplitude')
-        axes[0].set_title('Raw Signals')
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.3)
-
-        # --- Difference signal ---
+        fig, axes = plt.subplots(3, 2, figsize=(15, 12))
+        axes[0, 0].plot(baseline_time, baseline_signal, 'b-', label='Baseline', alpha=0.7)
+        axes[0, 0].plot(baseline_time, scenario_signal, 'r-', label=scenario_name, alpha=0.7)
+        axes[0, 0].axvline(x=baseline_time[direct_idx], color='green', linestyle='--', label='Direct Pulse')
+        axes[0, 0].set_xlabel('Time (s)')
+        axes[0, 0].set_ylabel('Amplitude')
+        axes[0, 0].set_title('Raw Signals')
+        axes[0, 0].legend()
+        axes[0, 0].grid(True, alpha=0.3)
+        zoom_start = max(0, direct_idx - int(0.0005 / self.effective_dt))
+        zoom_end = min(len(baseline_time), direct_idx + int(0.001 / self.effective_dt))
+        axes[0, 1].plot(baseline_time[zoom_start:zoom_end], baseline_signal[zoom_start:zoom_end], 'b-', label='Baseline')
+        axes[0, 1].plot(baseline_time[zoom_start:zoom_end], scenario_signal[zoom_start:zoom_end], 'r-', label=scenario_name)
+        axes[0, 1].axvline(x=baseline_time[direct_idx], color='green', linestyle='--', label='Direct Pulse')
+        axes[0, 1].set_xlabel('Time (s)')
+        axes[0, 1].set_ylabel('Amplitude')
+        axes[0, 1].set_title('Zoomed View: Direct Pulse')
+        axes[0, 1].legend()
+        axes[0, 1].grid(True, alpha=0.3)
         diff_signal = np.abs(scenario_signal) - np.abs(baseline_signal)
-        axes[1].plot(baseline_time, diff_signal, 'purple', label='Difference (Scenario - Baseline)', alpha=0.7)
-        axes[1].axhline(y=0, color='black', linestyle='-', alpha=0.5)
-
+        axes[1, 0].plot(baseline_time, diff_signal, 'purple', label='Difference (Scenario - Baseline)', alpha=0.7)
+        axes[1, 0].axhline(y=0, color='black', linestyle='-', alpha=0.5)
         for i, idx in enumerate(echo_indices):
             if idx < len(baseline_time):
                 is_primary = False
@@ -260,44 +202,49 @@ class EnhancedLeakDetector(p_plot):
                 color = 'green' if is_primary else 'red'
                 marker = '*' if is_primary else 'o'
                 size = 12 if is_primary else 8
-                axes[1].plot(baseline_time[idx], diff_signal[idx], marker, color=color, markersize=size)
+                axes[1, 0].plot(baseline_time[idx], diff_signal[idx], marker, color=color, markersize=size)
                 label = f'Primary Leak' if is_primary else f'Echo {i+1}'
-                axes[1].annotate(label, xy=(baseline_time[idx], diff_signal[idx]),
-                                xytext=(10, 10), textcoords='offset points',
-                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0'))
-
-        axes[1].set_xlabel('Time (s)')
-        axes[1].set_ylabel('Amplitude Difference')
-        axes[1].set_title('Difference Signal (|Scenario| - |Baseline|)')
-        axes[1].legend()
-        axes[1].grid(True, alpha=0.3)
-
-        # --- Leak distance estimates ---
+                axes[1, 0].annotate(label, xy=(baseline_time[idx], diff_signal[idx]),
+                                   xytext=(10, 10), textcoords='offset points',
+                                   arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0'))
+        axes[1, 0].set_xlabel('Time (s)')
+        axes[1, 0].set_ylabel('Amplitude Difference')
+        axes[1, 0].set_title('Difference Signal (|Scenario| - |Baseline|)')
+        axes[1, 0].legend()
+        axes[1, 0].grid(True, alpha=0.3)
+        f, t, Zxx = stft(diff_signal, fs=self.effective_sampling_rate, nperseg=256)
+        im = axes[1, 1].pcolormesh(t, f/1000, np.abs(Zxx), shading='gouraud', cmap='viridis')
+        axes[1, 1].set_ylabel('Frequency (kHz)')
+        axes[1, 1].set_xlabel('Time (s)')
+        axes[1, 1].set_title('Spectrogram of Difference Signal')
+        plt.colorbar(im, ax=axes[1, 1], label='Magnitude')
         if echo_metrics:
             distances = [echo['distance'] for echo in echo_metrics]
             evidence = [echo['evidence'] for echo in echo_metrics]
             is_primary = [echo.get('primary', False) for echo in echo_metrics]
             colors = ['green' if primary else 'orange' for primary in is_primary]
-            bars = axes[2].bar(range(len(distances)), distances, color=colors, alpha=0.7)
-            axes[2].set_xlabel('Echo Number')
-            axes[2].set_ylabel('Distance (m)')
-            axes[2].set_title('Estimated Leak Distances (Green = Primary)')
+            bars = axes[2, 0].bar(range(len(distances)), distances, color=colors, alpha=0.7)
+            axes[2, 0].set_xlabel('Echo Number')
+            axes[2, 0].set_ylabel('Distance (m)')
+            axes[2, 0].set_title('Estimated Leak Distances (Green = Primary)')
             for i, (d, e, primary) in enumerate(zip(distances, evidence, is_primary)):
                 text_color = 'black' if not primary else 'green'
                 weight = 'bold' if primary else 'normal'
-                axes[2].text(i, d, f'{d:.3f}m\n({e:.2f})', ha='center', va='bottom',
-                            color=text_color, weight=weight)
-
-        fig.tight_layout()
+                axes[2, 0].text(i, d, f'{d:.3f}m\n(conf: {e:.2f})', ha='center', va='bottom', 
+                               color=text_color, weight=weight)
+        axes[2, 1].hist(np.abs(baseline_signal), bins=50, alpha=0.7, label='Baseline', color='blue')
+        axes[2, 1].hist(np.abs(scenario_signal), bins=50, alpha=0.7, label=scenario_name, color='red')
+        axes[2, 1].set_xlabel('Amplitude')
+        axes[2, 1].set_ylabel('Count')
+        axes[2, 1].set_title('Amplitude Distribution')
+        axes[2, 1].legend()
+        axes[2, 1].grid(True, alpha=0.3)
+        plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=300, bbox_inches='tight')
-
-        canvas.draw()  # Render the plot inside the Qt frame
-
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.show()
         
     def analyze_scenario(self, baseline_path, scenario_path, output_dir):
-        """Analyze a single scenario against baseline"""
-
         baseline_time, baseline_raw = self.load_and_preprocess(baseline_path)
         scenario_time, scenario_raw = self.load_and_preprocess(scenario_path)
         
@@ -305,33 +252,26 @@ class EnhancedLeakDetector(p_plot):
             print("Error: Could not load data files")
             return None, None, None
             
-
         baseline_filtered = self.apply_adaptive_filter(baseline_raw)
         scenario_filtered = self.apply_adaptive_filter(scenario_raw)
         
-
         min_length = min(len(baseline_filtered), len(scenario_filtered))
         baseline_filtered = baseline_filtered[:min_length]
         scenario_filtered = scenario_filtered[:min_length]
         baseline_time = baseline_time[:min_length]
         
-
         self.speed_of_sound, direct_idx, end_cap_idx = self.calibrate_with_end_cap(
             baseline_time, baseline_filtered)
         
-  
         echo_indices, echo_metrics, primary_leak = self.detect_leak_echoes(
             baseline_filtered, scenario_filtered, baseline_time, direct_idx)
         
-    
         if primary_leak:
             for echo in echo_metrics:
                 echo['primary'] = (abs(echo['time'] - primary_leak['time']) < 1e-6)
         
-     
         os.makedirs(output_dir, exist_ok=True)
         
-       
         scenario_name = os.path.splitext(os.path.basename(scenario_path))[0]
         plot_path = os.path.join(output_dir, f"{scenario_name}_analysis.png")
         
@@ -339,7 +279,6 @@ class EnhancedLeakDetector(p_plot):
             baseline_time, baseline_filtered, scenario_filtered,
             direct_idx, echo_indices, echo_metrics, primary_leak, scenario_name, plot_path)
         
-    
         print(f"\n=== RESULTS FOR {scenario_name} ===")
         
         if echo_metrics:
@@ -351,29 +290,25 @@ class EnhancedLeakDetector(p_plot):
                 marker = "★" if is_primary else "○"
                 
                 print(f"{marker} Echo {i+1}:")
-                print(f"   Distance: {echo['distance']:.3f} m from sensor")
+                print(f"   Distance: {echo['distance']:.3f} m from sensor (confidence: {echo['evidence']:.3f})")
                 print(f"   Time delay: {echo['time_diff']*1000:.2f} ms")
-                print(f"   Evidence score: {echo['evidence']:.3f}")
                 
                 if is_primary:
                     print("   STATUS: PRIMARY LEAK CANDIDATE")
                 
                 print()
             
-        
             if primary_leak:
                 print("=== VALIDATION ===")
-                print(f"Primary leak detected at: {primary_leak['distance']:.3f} m")
+                print(f"Primary leak detected at: {primary_leak['distance']:.3f} m from hydrophone")
                 print(f"Time delay: {primary_leak['time_diff']*1000:.2f} ms")
-                print(f"Evidence score: {primary_leak['evidence']:.3f}")
+                print(f"Confidence: {primary_leak['evidence']:.3f}")
                 
-          
-                if 0 < primary_leak['distance'] < self.pipe_length:
-                    print("✓ Distance is within pipe bounds (0 - 1.0 m)")
+                if 0 < primary_leak['distance'] <= self.pipe_length:
+                    print("✓ Distance is within pipe bounds (0 - {self.pipe_length} m)")
                 else:
                     print("✗ Warning: Distance is outside pipe bounds")
                 
-       
                 if primary_leak['evidence'] > 1.0:
                     print("✓ Strong evidence for leak detection")
                 elif primary_leak['evidence'] > 0.5:
@@ -383,13 +318,11 @@ class EnhancedLeakDetector(p_plot):
         else:
             print("No leak echoes detected")
             
-        
             print("\n=== DIAGNOSTICS ===")
             print(f"Direct pulse found at: {baseline_time[direct_idx]:.6f} s")
             print(f"End cap reflection at: {baseline_time[end_cap_idx]:.6f} s")
             print(f"Speed of sound: {self.speed_of_sound:.1f} m/s")
             
-
             correlation = np.corrcoef(baseline_filtered, scenario_filtered)[0, 1]
             print(f"Correlation between signals: {correlation:.3f}")
             
@@ -398,7 +331,6 @@ class EnhancedLeakDetector(p_plot):
             else:
                 print("✓ Signals are different - leak should be detectable")
                 
-   
             baseline_energy = np.sum(baseline_filtered**2)
             scenario_energy = np.sum(scenario_filtered**2)
             energy_ratio = scenario_energy / baseline_energy
@@ -412,82 +344,72 @@ class EnhancedLeakDetector(p_plot):
         
         return echo_metrics, baseline_time, scenario_filtered
 
-    def main(self,baseline_path , scenario_path):
-
-        detector = EnhancedLeakDetector(
-            sampling_rate=50000000,  # 12.5 MS/s
-            pipe_length=1.0          # 1 meter pipe
-        )
+def main():
+    detector = EnhancedLeakDetector(
+        sampling_rate=50000000,
+        pipe_length=0.8  
+    )
+    
+    baseline_path = "C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\Response_Folder\\analogbaseline.csv"
+    output_dir = "C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\enhanced_analysis"
+    
+    scenario_files = glob.glob("C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\Response_Folder\\analog2.csv")
+    scenario_files = [f for f in scenario_files if "baseline" not in f.lower()]
+    
+    print(f"Found {len(scenario_files)} scenario files")
+    
+    all_results = []
+    
+    for scenario_path in scenario_files:
+        print(f"\n{'='*60}")
+        print(f"Processing: {os.path.basename(scenario_path)}")
+        print(f"{'='*60}")
         
-        # Define paths
-       
-        output_dir = "C:\\Users\\abdul\\Desktop\\Hydrophone_Project\\enhanced_analysis"
-
-
-        scenario_files = glob.glob(f"{scenario_path}")
-
-        scenario_files = [f for f in scenario_files if "baseline" not in f.lower()]
+        results, time, signal = detector.analyze_scenario(
+            baseline_path, scenario_path, output_dir)
         
-        print(f"Found {len(scenario_files)} scenario files")
-
-        all_results = []
-        
-        for scenario_path in scenario_files:
-            print(f"\n{'='*60}")
-            print(f"Processing: {os.path.basename(scenario_path)}")
-            print(f"{'='*60}")
-            
-            results, time, signal = detector.analyze_scenario(
-                baseline_path, scenario_path, output_dir)
-            
-            if results is not None:
-
-                primary_leak = None
-                for leak in results:
-                    if leak.get('primary', False):
-                        primary_leak = leak
-                        break
-                        
-                all_results.append({
-                    'file': os.path.basename(scenario_path),
-                    'leaks': results,
-                    'primary_leak': primary_leak
-                })
-        
-
-        summary_path = os.path.join(output_dir, "leak_detection_summary.txt")
-        with open(summary_path, 'w', encoding="utf-8") as f:
-            f.write("ENHANCED LEAK DETECTION SUMMARY\n")
-            f.write("=" * 50 + "\n\n")
-            
-            f.write(f"Sampling rate: {detector.sampling_rate/1e6:.1f} MS/s\n")
-            f.write(f"Effective sampling rate: {detector.effective_sampling_rate/1e3:.1f} kS/s\n")
-            f.write(f"Pipe length: {detector.pipe_length} m\n")
-            f.write(f"Speed of sound: {detector.speed_of_sound:.1f} m/s\n\n")
-            
-            f.write("DETECTION RESULTS:\n")
-            f.write("=" * 50 + "\n")
-            
-            for result in all_results:
-                f.write(f"\n{result['file']}:\n")
-                
-                if result['leaks']:
-                    for i, leak in enumerate(result['leaks']):
-                        primary_marker = "★ " if leak.get('primary', False) else "  "
-                        f.write(f"{primary_marker}Leak {i+1}: {leak['distance']:.3f}m "
-                            f"(Δt = {leak['time_diff']*1000:.2f}ms, evidence = {leak['evidence']:.3f})\n")
-                else:
-                    f.write("  No leaks detected\n")
+        if results is not None:
+            primary_leak = None
+            for leak in results:
+                if leak.get('primary', False):
+                    primary_leak = leak
+                    break
                     
-                if result['primary_leak']:
-                    f.write(f"  → PRIMARY LEAK: {result['primary_leak']['distance']:.3f}m\n")
+            all_results.append({
+                'file': os.path.basename(scenario_path),
+                'leaks': results,
+                'primary_leak': primary_leak
+            })
+    
+    summary_path = os.path.join(output_dir, "leak_detection_summary.txt")
+    with open(summary_path, 'w') as f:
+        f.write("ENHANCED LEAK DETECTION SUMMARY\n")
+        f.write("=" * 50 + "\n\n")
         
-        print(f"\nAnalysis complete! Results saved to '{output_dir}'")
-        print(f"Summary: {summary_path}")
-
-
-
+        f.write(f"Sampling rate: {detector.sampling_rate/1e6:.1f} MS/s\n")
+        f.write(f"Effective sampling rate: {detector.effective_sampling_rate/1e3:.1f} kS/s\n")
+        f.write(f"Pipe length: {detector.pipe_length} m\n")
+        f.write(f"Speed of sound: {detector.speed_of_sound:.1f} m/s\n\n")
+        
+        f.write("DETECTION RESULTS:\n")
+        f.write("=" * 50 + "\n")
+        
+        for result in all_results:
+            f.write(f"\n{result['file']}:\n")
+            
+            if result['leaks']:
+                for i, leak in enumerate(result['leaks']):
+                    primary_marker = "★ " if leak.get('primary', False) else "  "
+                    f.write(f"{primary_marker}Leak {i+1}: {leak['distance']:.3f}m from hydrophone "
+                           f"(Δt = {leak['time_diff']*1000:.2f}ms, confidence = {leak['evidence']:.3f})\n")
+            else:
+                f.write("  No leaks detected\n")
+                
+            if result['primary_leak']:
+                f.write(f"  → PRIMARY LEAK: {result['primary_leak']['distance']:.3f}m from hydrophone\n")
+    
+    print(f"\nAnalysis complete! Results saved to '{output_dir}'")
+    print(f"Summary: {summary_path}")
 
 if __name__ == "__main__":
-    x = EnhancedLeakDetector()
-    x.starter()
+    main()
