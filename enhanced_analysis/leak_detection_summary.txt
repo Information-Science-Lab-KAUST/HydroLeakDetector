@@ -3,18 +3,10 @@ ENHANCED LEAK DETECTION SUMMARY
 
 Sampling rate: 50.0 MS/s
 Effective sampling rate: 500.0 kS/s
-Pipe length: 1.0 m
-Speed of sound: 1302.1 m/s
+Pipe length: 0.8 m
+Speed of sound: 1581.0 m/s
 
 DETECTION RESULTS:
 ==================================================
 
-analog.csv:
-★ Leak 1: 0.633m (Δt = 0.97ms, evidence = 1.740)
-  Leak 2: 0.805m (Δt = 1.24ms, evidence = 1.270)
-  Leak 3: 0.337m (Δt = 0.52ms, evidence = 1.268)
-  Leak 4: 0.229m (Δt = 0.35ms, evidence = 0.962)
-  Leak 5: 0.477m (Δt = 0.73ms, evidence = 0.733)
-  Leak 6: 0.908m (Δt = 1.39ms, evidence = 0.727)
-  Leak 7: 0.145m (Δt = 0.22ms, evidence = 0.578)
-  → PRIMARY LEAK: 0.633m
+analog2.csv:
